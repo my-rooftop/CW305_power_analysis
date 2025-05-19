@@ -228,7 +228,6 @@ module cw305_top #(
   // Cable USB).
 
 
-`ifdef GOOGLE_VAULT_AES
     wire aes_clk;
     wire [127:0] aes_key;
     wire [127:0] aes_pt;
@@ -267,7 +266,6 @@ module cw305_top #(
        .busy_o          (aes_busy)
    );
    assign tio_trigger = aes_busy;
-`endif
 
 
 endmodule
