@@ -92,7 +92,7 @@ module tb();
 
    reg [127:0] textin_extended;
    reg [127:0] key_extended;
-
+   integer i;
 
    task write_byte;
       input [1:0] block;
@@ -204,18 +204,22 @@ module tb();
       #(pUSB_CLOCK_PERIOD*10);
 
 
-      write_bytes(0, 16, `REG_CRYPT_TEXTIN, {32'hFFFFFFFF, 32'hFFFFFFFF, 32'hFFFFFFFF, 32'hFFFFFFFF});
-      write_bytes(0, 16, `REG_CRYPT_KEY, {32'h80000000, 32'h0, 32'h0, 32'hFFFFFFFF});
 
 
-      #(pUSB_CLOCK_PERIOD*2) pushbutton = 0;
-      #(pUSB_CLOCK_PERIOD*2) pushbutton = 1;
+      for (i = 0; i < 128; i = i + 1) begin
 
+         write_bytes(0, 16, `REG_CRYPT_KEY, {32'hFFFFFFFF, 32'hFFFFFFFF, 32'hFFFFFFFF, {24'b0, i[7:0]}});
+         write_bytes(0, 16, `REG_CRYPT_TEXTIN, {32'h80000000, 32'h0, 32'h0, {24'b0, i[7:0]}});
 
-      $display("Encrypting via register...");
-      write_byte(0, `REG_CRYPT_GO, 0, 1);
-      repeat (5) @(posedge usb_clk);
-      wait_done();
+         #(pUSB_CLOCK_PERIOD*2) pushbutton = 0;
+         #(pUSB_CLOCK_PERIOD*2) pushbutton = 1;
+
+         $display("Encrypting i = %0d via register...", i);
+         write_byte(0, `REG_CRYPT_GO, 0, 1);
+         repeat (5) @(posedge usb_clk);
+         wait_done();
+      end
+
       read_bytes(0, 16, `REG_CRYPT_CIPHEROUT, read_data);
       if (read_data == expected_cipher) begin
          $display("Good result");
@@ -227,6 +231,28 @@ module tb();
       end
 
 
+      write_bytes(0, 16, `REG_CRYPT_KEY, {32'h00000000, 32'h00000000, 32'h00000000, 32'h00000000});
+      write_bytes(0, 16, `REG_CRYPT_TEXTIN, {32'h00000000, 32'h00000000, 32'h00000000, 32'h00000000});
+
+
+      #(pUSB_CLOCK_PERIOD*2) pushbutton = 0;
+      #(pUSB_CLOCK_PERIOD*2) pushbutton = 1;
+
+      $display("Encrypting i = %0d via register...", i);
+      write_byte(0, `REG_CRYPT_GO, 0, 1);
+      repeat (5) @(posedge usb_clk);
+      wait_done();
+
+
+      read_bytes(0, 16, `REG_CRYPT_CIPHEROUT, read_data);
+      if (read_data == expected_cipher) begin
+         $display("Good result");
+      end
+      else begin
+         errors = errors + 1;
+         $display("ERROR: expected %h", expected_cipher);
+         $display("            got %h", read_data);
+      end
 
       // for (j = 0; j < WEIGHT; j = j + 1) begin
       //    encrypt_index(sparse_pairs[j], j);  // sparse_pairs[i]를 TEXTIN으로 사용, key 값은 i (0~65)
